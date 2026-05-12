@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AskUp - Live Display</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9995;</text></svg>">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Product+Sans:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      --g-blue: #4285f4;
+      --g-red: #ea4335;
+      --g-yellow: #fbbc04;
+      --g-green: #34a853;
+      --g-blue-light: #e8f0fe;
+      --g-green-light: #e6f4ea;
+      --g-yellow-light: #fef7e0;
+      --dark: #202124;
+      --text: #3c4043;
+      --text-light: #5f6368;
+      --bg: #f8f9fa;
+      --white: #ffffff;
+      --border: #dadce0;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', 'Google Sans', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow: hidden;
+      transition: background 0.5s, color 0.5s;
+    }
+
+    body.dark {
+      --bg: #1a1a2e;
+      --dark: #e8eaed;
+      --text: #bdc1c6;
+      --text-light: #9aa0a6;
+      --white: #292a2d;
+      --border: #3c4043;
+      --g-blue-light: rgba(66,133,244,0.15);
+      --g-green-light: rgba(52,168,83,0.15);
+      --g-yellow-light: rgba(251,188,4,0.15);
+      background: #1a1a2e;
+      color: #e8eaed;
+    }
+
+    /* ── Header ── */
+    .display-header {
+      padding: 20px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 3px solid transparent;
+      border-image: linear-gradient(90deg, var(--g-blue) 25%, var(--g-red) 25%, var(--g-red) 50%, var(--g-yellow) 50%, var(--g-yellow) 75%, var(--g-green) 75%) 1;
+    }
+
+    .display-header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .display-logo {
+      font-family: 'Product Sans', 'Inter', sans-serif;
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      display: inline-flex;
+    }
+
+    .display-logo span:nth-child(1) { color: var(--g-blue); }
+    .display-logo span:nth-child(2) { color: var(--g-red); }
+    .display-logo span:nth-child(3) { color: var(--g-yellow); }
+    .display-logo span:nth-child(4) { color: var(--g-blue); }
+    .display-logo span:nth-child(5) { color: var(--g-green); }
+    .display-logo span:nth-child(6) { color: var(--g-red); }
+
+    .display-session-name {
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--text-light);
+    }
+
+    .display-header-right {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .display-stat {
+      text-align: center;
+    }
+
+    .display-stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      font-family: 'Google Sans', 'Inter', sans-serif;
+    }
+
+    .display-stat-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-light);
+      font-weight: 500;
+    }
+
+    .display-stat.blue .display-stat-value { color: var(--g-blue); }
+    .display-stat.green .display-stat-value { color: var(--g-green); }
+    .display-stat.yellow .display-stat-value { color: var(--g-yellow); }
+
+    .join-badge {
+      background: var(--g-blue-light);
+      border: 2px solid var(--g-blue);
+      border-radius: 16px;
+      padding: 12px 24px;
+      text-align: center;
+    }
+
+    .join-badge-code {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: var(--g-blue);
+      font-family: 'Google Sans', monospace;
+    }
+
+    .join-badge-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--g-blue);
+      font-weight: 600;
+    }
+
+    /* ── Main layout ── */
+    .display-body {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      height: calc(100vh - 100px);
+      overflow: hidden;
+    }
+
+    /* ── Spotlight (current question) ── */
+    .spotlight-section {
+      padding: 40px 48px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .spotlight-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--g-blue);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .spotlight-label .pulse-ring {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--g-red);
+      animation: spotlightPulse 1.5s infinite;
+    }
+
+    @keyframes spotlightPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(234,67,53,0.4); }
+      50% { box-shadow: 0 0 0 8px rgba(234,67,53,0); }
+    }
+
+    .spotlight-card {
+      background: var(--white);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 4px 20px rgba(60,64,67,0.12);
+      flex: 0 0 auto;
+      animation: spotlightIn 0.5s ease;
+      border: 1px solid var(--border);
+    }
+
+    body.dark .spotlight-card {
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    @keyframes spotlightIn {
+      from { opacity: 0; transform: scale(0.97); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .spotlight-text {
+      font-size: 32px;
+      font-weight: 600;
+      line-height: 1.4;
+      color: var(--dark);
+      margin-bottom: 20px;
+    }
+
+    .spotlight-meta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 16px;
+      color: var(--text-light);
+    }
+
+    .spotlight-votes {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--g-blue-light);
+      color: var(--g-blue);
+      padding: 8px 18px;
+      border-radius: 24px;
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .spotlight-tag {
+      padding: 6px 16px;
+      border-radius: 16px;
+      font-size: 13px;
+      font-weight: 500;
+      background: var(--g-blue-light);
+      color: var(--g-blue);
+    }
+
+    /* ── Up next queue ── */
+    .queue-section {
+      margin-top: 32px;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .queue-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-light);
+      margin-bottom: 12px;
+    }
+
+    .queue-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    .queue-item {
+      background: var(--white);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border: 1px solid var(--border);
+      animation: slideUp 0.4s ease;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .queue-rank {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-light);
+      min-width: 32px;
+      text-align: center;
+    }
+
+    .queue-item-text {
+      flex: 1;
+      font-size: 16px;
+      line-height: 1.4;
+      color: var(--dark);
+    }
+
+    .queue-item-votes {
+      background: var(--g-blue-light);
+      color: var(--g-blue);
+      padding: 4px 14px;
+      border-radius: 16px;
+      font-weight: 700;
+      font-size: 15px;
+      white-space: nowrap;
+    }
+
+    /* ── Sidebar / live feed ── */
+    .display-sidebar {
+      border-left: 1px solid var(--border);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--white);
+    }
+
+    body.dark .display-sidebar {
+      background: #23243a;
+    }
+
+    .sidebar-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-light);
+      margin-bottom: 16px;
+    }
+
+    .qr-display {
+      text-align: center;
+      margin-bottom: 24px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .qr-display img {
+      width: 160px;
+      height: 160px;
+      border-radius: 12px;
+    }
+
+    .qr-display-code {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: var(--g-blue);
+      margin-top: 8px;
+      font-family: 'Google Sans', monospace;
+    }
+
+    .qr-display-hint {
+      font-size: 12px;
+      color: var(--text-light);
+      margin-top: 4px;
+    }
+
+    /* ── Live feed ── */
+    .live-feed {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .feed-item {
+      padding: 12px;
+      background: var(--bg);
+      border-radius: 10px;
+      animation: feedIn 0.3s ease;
+      font-size: 14px;
+      line-height: 1.4;
+      color: var(--dark);
+    }
+
+    body.dark .feed-item {
+      background: rgba(255,255,255,0.05);
+    }
+
+    @keyframes feedIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .feed-item-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .feed-item-name {
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--text-light);
+    }
+
+    .feed-item-votes {
+      font-weight: 700;
+      color: var(--g-blue);
+      font-size: 13px;
+    }
+
+    .feed-item-text {
+      font-size: 14px;
+      color: var(--dark);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* ── Word cloud overlay ── */
+    .word-cloud-display {
+      margin-top: auto;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .cloud-words {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      justify-content: center;
+    }
+
+    .cloud-w {
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-weight: 500;
+      background: var(--g-blue-light);
+      color: var(--g-blue);
+    }
+
+    .cloud-w.s1 { font-size: 10px; opacity: 0.6; }
+    .cloud-w.s2 { font-size: 12px; }
+    .cloud-w.s3 { font-size: 15px; font-weight: 600; }
+    .cloud-w.s4 { font-size: 18px; font-weight: 700; }
+
+    /* ── Empty / waiting states ── */
+    .waiting-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      text-align: center;
+      gap: 16px;
+    }
+
+    .waiting-icon {
+      font-size: 64px;
+      opacity: 0.3;
+      animation: bounce 2s infinite;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .waiting-text {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--dark);
+    }
+
+    .waiting-subtext {
+      font-size: 16px;
+      color: var(--text-light);
+    }
+
+    /* ── Controls (bottom-right, subtle) ── */
+    .display-controls {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      display: flex;
+      gap: 8px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 10;
+    }
+
+    .display-controls:hover { opacity: 1; }
+    body:hover .display-controls { opacity: 0.5; }
+    .display-controls:hover { opacity: 1 !important; }
+
+    .ctrl-btn {
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+
+    .ctrl-btn:hover { background: var(--g-blue-light); color: var(--g-blue); border-color: var(--g-blue); }
+    .ctrl-btn.active { background: var(--g-blue); color: white; border-color: var(--g-blue); }
+
+    /* ── Answered animation ── */
+    .answered-flash {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      background: var(--g-green);
+      color: white;
+      padding: 24px 48px;
+      border-radius: 20px;
+      font-size: 28px;
+      font-weight: 700;
+      z-index: 100;
+      box-shadow: 0 8px 32px rgba(52,168,83,0.4);
+      animation: flashIn 0.5s ease forwards, flashOut 0.5s ease 1.5s forwards;
+      pointer-events: none;
+    }
+
+    @keyframes flashIn {
+      to { transform: translate(-50%, -50%) scale(1); }
+    }
+
+    @keyframes flashOut {
+      to { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+    }
+
+    /* ── New question notification ── */
+    .new-q-notif {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--g-blue);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 500;
+      box-shadow: 0 4px 16px rgba(66,133,244,0.3);
+      animation: notifIn 0.3s ease, notifOut 0.3s ease 2.7s forwards;
+      z-index: 100;
+    }
+
+    @keyframes notifIn {
+      from { opacity: 0; transform: translateX(40px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes notifOut {
+      to { opacity: 0; transform: translateX(40px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="display-header">
+    <div class="display-header-left">
+      <div class="display-logo">
+        <span>A</span><span>s</span><span>k</span><span>U</span><span>p</span><span>!</span>
+      </div>
+      <div class="display-session-name" id="sessionName">Loading...</div>
+    </div>
+    <div class="display-header-right">
+      <div class="display-stat blue">
+        <div class="display-stat-value" id="statQuestions">0</div>
+        <div class="display-stat-label">Questions</div>
+      </div>
+      <div class="display-stat green">
+        <div class="display-stat-value" id="statAnswered">0</div>
+        <div class="display-stat-label">Answered</div>
+      </div>
+      <div class="display-stat yellow">
+        <div class="display-stat-value" id="statParticipants">0</div>
+        <div class="display-stat-label">Participants</div>
+      </div>
+      <div class="join-badge">
+        <div class="join-badge-label">Join with code</div>
+        <div class="join-badge-code" id="joinCode">---</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="display-body">
+    <div class="spotlight-section">
+      <!-- Spotlight: top question -->
+      <div id="spotlightArea">
+        <div class="spotlight-label">
+          <div class="pulse-ring"></div>
+          NOW DISCUSSING
+        </div>
+        <div class="spotlight-card" id="spotlightCard" style="display:none;">
+          <div class="spotlight-text" id="spotlightText"></div>
+          <div class="spotlight-meta">
+            <div class="spotlight-votes" id="spotlightVotes">
+              &#9650; <span id="spotlightVoteCount">0</span>
+            </div>
+            <span id="spotlightAuthor"></span>
+            <div id="spotlightTags"></div>
+          </div>
+        </div>
+        <div id="spotlightEmpty" class="waiting-state" style="min-height:200px;">
+          <div class="waiting-icon">&#9995;</div>
+          <div class="waiting-text">Waiting for questions...</div>
+          <div class="waiting-subtext">Scan the QR code on the right to ask!</div>
+        </div>
+      </div>
+
+      <!-- Up next queue -->
+      <div class="queue-section">
+        <div class="queue-label">UP NEXT</div>
+        <div class="queue-list" id="queueList"></div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="display-sidebar">
+      <div class="qr-display">
+        <div class="sidebar-section-title">Scan to Join</div>
+        <img id="qrImage" />
+        <div class="qr-display-code" id="qrCode"></div>
+        <div class="qr-display-hint">or visit the URL on your phone</div>
+      </div>
+
+      <div class="sidebar-section-title">Live Feed</div>
+      <div class="live-feed" id="liveFeed">
+        <div style="text-align:center;color:var(--text-light);padding:20px;font-size:14px;">
+          Questions will appear here as they come in...
+        </div>
+      </div>
+
+      <div class="word-cloud-display">
+        <div class="sidebar-section-title">Trending</div>
+        <div class="cloud-words" id="cloudWords"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls (hover bottom-right) -->
+  <div class="display-controls">
+    <button class="ctrl-btn" onclick="toggleDark()">Dark Mode</button>
+    <button class="ctrl-btn" onclick="toggleAutoAdvance()" id="autoBtn">Auto-advance: ON</button>
+    <button class="ctrl-btn" onclick="nextQuestion()">Next &#9654;</button>
+    <button class="ctrl-btn" onclick="prevQuestion()">&#9664; Prev</button>
+  </div>
+
+  <div id="notifications"></div>
+
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+  <script>
+    const socket = io();
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+
+    if (!code) window.location.href = '/';
+
+    let questions = [];
+    let spotlightIndex = 0;
+    let autoAdvance = true;
+    let autoTimer = null;
+
+    const userId = 'display-' + crypto.randomUUID();
+
+    socket.emit('join-session', { code, userId, userName: 'Display', role: 'display' });
+
+    // Load QR
+    fetch(`/api/sessions/${code}/qr`).then(r => r.json()).then(data => {
+      document.getElementById('qrImage').src = data.qr;
+      document.getElementById('qrCode').textContent = code;
+      document.getElementById('joinCode').textContent = code;
+    });
+
+    socket.on('session-data', data => {
+      document.getElementById('sessionName').textContent = data.name;
+      questions = data.questions.filter(q => !q.isHidden);
+      updateDisplay();
+    });
+
+    socket.on('new-question', q => {
+      if (!q.isHidden) {
+        questions.push(q);
+        updateDisplay();
+        addToFeed(q);
+        showNotification(`New question from ${q.userName}!`);
+      }
+    });
+
+    socket.on('vote-update', ({ questionId, votes, voters }) => {
+      const q = questions.find(q => q.id === questionId);
+      if (q) { q.votes = votes; q.voters = voters; updateDisplay(); }
+    });
+
+    socket.on('question-updated', updated => {
+      const idx = questions.findIndex(q => q.id === updated.id);
+      if (idx >= 0) {
+        const wasAnswered = !questions[idx].isAnswered && updated.isAnswered;
+        questions[idx] = updated;
+        if (updated.isHidden) questions = questions.filter(q => !q.isHidden);
+        updateDisplay();
+        if (wasAnswered) showAnsweredFlash();
+      }
+    });
+
+    socket.on('participant-count', count => {
+      document.getElementById('statParticipants').textContent = count;
+    });
+
+    socket.on('stats-update', stats => {
+      document.getElementById('statQuestions').textContent = stats.total;
+      document.getElementById('statAnswered').textContent = stats.answered;
+      document.getElementById('statParticipants').textContent = stats.participants;
+    });
+
+    // ── Display logic ──
+    function getTopQuestions() {
+      return questions
+        .filter(q => !q.isAnswered && !q.isHidden)
+        .sort((a, b) => {
+          if (a.isPinned !== b.isPinned) return b.isPinned ? 1 : -1;
+          return b.votes - a.votes;
+        });
+    }
+
+    function updateDisplay() {
+      const top = getTopQuestions();
+      const total = questions.filter(q => !q.isHidden);
+      const answered = total.filter(q => q.isAnswered);
+
+      document.getElementById('statQuestions').textContent = total.length;
+      document.getElementById('statAnswered').textContent = answered.length;
+
+      if (top.length === 0) {
+        document.getElementById('spotlightCard').style.display = 'none';
+        document.getElementById('spotlightEmpty').style.display = 'flex';
+        document.getElementById('queueList').innerHTML = '';
+        return;
+      }
+
+      document.getElementById('spotlightEmpty').style.display = 'none';
+      document.getElementById('spotlightCard').style.display = 'block';
+
+      if (spotlightIndex >= top.length) spotlightIndex = 0;
+
+      const current = top[spotlightIndex];
+      document.getElementById('spotlightText').textContent = current.text;
+      document.getElementById('spotlightVoteCount').textContent = current.votes;
+      document.getElementById('spotlightAuthor').textContent = current.userName;
+      document.getElementById('spotlightTags').innerHTML = current.tags
+        .map(t => `<span class="spotlight-tag">${t}</span>`).join('');
+
+      // Up next (skip current)
+      const upcoming = top.filter((_, i) => i !== spotlightIndex).slice(0, 4);
+      document.getElementById('queueList').innerHTML = upcoming.map((q, i) => `
+        <div class="queue-item">
+          <div class="queue-rank">${i + 2}</div>
+          <div class="queue-item-text">${escapeHtml(q.text)}</div>
+          <div class="queue-item-votes">&#9650; ${q.votes}</div>
+        </div>
+      `).join('');
+
+      updateWordCloud();
+      resetAutoTimer();
+    }
+
+    function nextQuestion() {
+      const top = getTopQuestions();
+      if (top.length > 1) {
+        spotlightIndex = (spotlightIndex + 1) % top.length;
+        animateSpotlight();
+        updateDisplay();
+      }
+    }
+
+    function prevQuestion() {
+      const top = getTopQuestions();
+      if (top.length > 1) {
+        spotlightIndex = (spotlightIndex - 1 + top.length) % top.length;
+        animateSpotlight();
+        updateDisplay();
+      }
+    }
+
+    function animateSpotlight() {
+      const card = document.getElementById('spotlightCard');
+      card.style.animation = 'none';
+      card.offsetHeight;
+      card.style.animation = 'spotlightIn 0.5s ease';
+    }
+
+    function resetAutoTimer() {
+      if (autoTimer) clearInterval(autoTimer);
+      if (autoAdvance) {
+        autoTimer = setInterval(() => {
+          const top = getTopQuestions();
+          if (top.length > 1) {
+            spotlightIndex = (spotlightIndex + 1) % top.length;
+            animateSpotlight();
+            updateDisplay();
+          }
+        }, 15000);
+      }
+    }
+
+    function toggleAutoAdvance() {
+      autoAdvance = !autoAdvance;
+      document.getElementById('autoBtn').textContent = `Auto-advance: ${autoAdvance ? 'ON' : 'OFF'}`;
+      document.getElementById('autoBtn').classList.toggle('active', autoAdvance);
+      resetAutoTimer();
+    }
+
+    function toggleDark() {
+      document.body.classList.toggle('dark');
+    }
+
+    // ── Feed ──
+    function addToFeed(q) {
+      const feed = document.getElementById('liveFeed');
+      const first = feed.querySelector('div[style]');
+      if (first) first.remove();
+
+      const el = document.createElement('div');
+      el.className = 'feed-item';
+      el.innerHTML = `
+        <div class="feed-item-header">
+          <span class="feed-item-name">${escapeHtml(q.userName)}</span>
+          <span class="feed-item-votes">&#9650; ${q.votes}</span>
+        </div>
+        <div class="feed-item-text">${escapeHtml(q.text)}</div>
+      `;
+      feed.insertBefore(el, feed.firstChild);
+
+      while (feed.children.length > 10) feed.removeChild(feed.lastChild);
+    }
+
+    // ── Word cloud ──
+    function updateWordCloud() {
+      const words = {};
+      const stop = new Set(['the','a','an','is','are','was','were','be','been','have','has','had','do','does','did','will','would','could','should','may','can','to','of','in','for','on','with','at','by','from','as','into','through','during','before','after','out','off','over','under','again','then','here','there','when','where','why','how','all','each','few','more','most','other','some','no','not','only','so','than','too','very','just','but','and','or','if','what','which','who','this','that','these','those','i','me','my','we','our','you','your','he','him','his','she','her','it','its','they','them','their','about','like','get','know','think','want','make','go','see','come','take','find','give','tell','work','call','try','ask','use','look','google','much','many','also','really','been','being','done','going','need']);
+
+      questions.filter(q => !q.isHidden).forEach(q => {
+        q.text.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).forEach(w => {
+          if (w.length > 2 && !stop.has(w)) words[w] = (words[w] || 0) + 1;
+        });
+      });
+
+      const sorted = Object.entries(words).sort((a, b) => b[1] - a[1]).slice(0, 15);
+      const cloud = document.getElementById('cloudWords');
+
+      if (sorted.length === 0) {
+        cloud.innerHTML = '';
+        return;
+      }
+
+      const max = sorted[0][1];
+      cloud.innerHTML = sorted.map(([w, c]) => {
+        const r = c / max;
+        const s = r > 0.75 ? 's4' : r > 0.5 ? 's3' : r > 0.25 ? 's2' : 's1';
+        return `<span class="cloud-w ${s}">${w}</span>`;
+      }).join('');
+    }
+
+    // ── Effects ──
+    function showAnsweredFlash() {
+      const el = document.createElement('div');
+      el.className = 'answered-flash';
+      el.textContent = '&#10003; Answered!';
+      el.innerHTML = '&#10003; Answered!';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2500);
+    }
+
+    function showNotification(msg) {
+      const el = document.createElement('div');
+      el.className = 'new-q-notif';
+      el.textContent = msg;
+      document.getElementById('notifications').appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // Keyboard navigation
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextQuestion(); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); prevQuestion(); }
+      if (e.key === 'd') toggleDark();
+      if (e.key === 'a') toggleAutoAdvance();
+      if (e.key === 'f') document.documentElement.requestFullscreen?.();
+    });
+  </script>
+</body>
+</html>

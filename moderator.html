@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AskUp - Moderator Dashboard</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#127908;</text></svg>">
+  <style>
+    .mod-split {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 24px;
+    }
+    .sidebar {
+      position: sticky;
+      top: 80px;
+      height: fit-content;
+    }
+    .sidebar-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .sidebar-card h3 {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-light);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .word-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+    }
+    .cloud-word {
+      padding: 4px 10px;
+      border-radius: 16px;
+      font-weight: 500;
+      background: var(--g-blue-light);
+      color: var(--g-blue);
+    }
+    .cloud-word.size-1 { font-size: 11px; opacity: 0.7; }
+    .cloud-word.size-2 { font-size: 13px; }
+    .cloud-word.size-3 { font-size: 16px; font-weight: 600; }
+    .cloud-word.size-4 { font-size: 20px; font-weight: 700; }
+    .session-controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .live-pulse {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .live-pulse.active { background: var(--g-green-light); color: var(--g-green); }
+    .live-pulse.paused { background: var(--g-yellow-light); color: #e37400; }
+    .tag-filter-bar { display: flex; gap: 6px; flex-wrap: wrap; }
+    .activity-item {
+      padding: 6px 0;
+      border-bottom: 1px solid var(--bg);
+      font-size: 13px;
+      color: var(--text-light);
+      line-height: 1.4;
+    }
+    .activity-item strong { color: var(--text); font-weight: 500; }
+    @media (max-width: 900px) {
+      .mod-split { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <a href="/" style="text-decoration:none;">
+        <div class="logo">
+          <span>A</span><span>s</span><span>k</span><span>U</span><span>p</span><span>!</span>
+        </div>
+      </a>
+      <span class="live-pulse active" id="livePulse">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Live</span>
+      </span>
+    </div>
+    <div class="header-meta">
+      <span class="session-badge" id="sessionCode"></span>
+      <span class="participant-count">
+        <span id="pCount">0</span> participants
+      </span>
+      <div class="session-controls">
+        <button class="btn btn-sm btn-secondary" onclick="toggleSession()" id="toggleBtn">Pause</button>
+        <button class="btn btn-sm btn-secondary" onclick="showQR()">&#128246; QR Code</button>
+        <button class="btn btn-sm btn-secondary" onclick="exportData()">&#128230; Export</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="g-event-bar">
+    <strong>&#127908;</strong> Moderator Dashboard &mdash; <span id="headerSessionName">AMA Session</span>
+  </div>
+
+  <div class="mod-container">
+
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat-card blue">
+        <div class="stat-value" id="statTotal">0</div>
+        <div class="stat-label">Questions</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-value" id="statAnswered">0</div>
+        <div class="stat-label">Answered</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-value" id="statUnanswered">0</div>
+        <div class="stat-label">Unanswered</div>
+      </div>
+      <div class="stat-card yellow">
+        <div class="stat-value" id="statParticipants">0</div>
+        <div class="stat-label">Participants</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statVotes">0</div>
+        <div class="stat-label">Total Votes</div>
+      </div>
+    </div>
+
+    <div class="mod-split">
+      <!-- Main question area -->
+      <div>
+        <!-- Filters -->
+        <div class="mod-toolbar">
+          <div class="tag-filter-bar">
+            <button class="filter-btn active" data-filter="all" onclick="setFilter('all', this)">All</button>
+            <button class="filter-btn" data-filter="unanswered" onclick="setFilter('unanswered', this)">Unanswered</button>
+            <button class="filter-btn" data-filter="answered" onclick="setFilter('answered', this)">Answered</button>
+            <button class="filter-btn" data-filter="pinned" onclick="setFilter('pinned', this)">Pinned</button>
+          </div>
+          <div style="flex:1;"></div>
+          <div class="tag-filter-bar" id="tagFilters">
+            <button class="filter-btn" data-tag="career" onclick="toggleTagFilter('career', this)">&#128188; Career</button>
+            <button class="filter-btn" data-tag="culture" onclick="toggleTagFilter('culture', this)">&#127912; Culture</button>
+            <button class="filter-btn" data-tag="technical" onclick="toggleTagFilter('technical', this)">&#128187; Technical</button>
+            <button class="filter-btn" data-tag="intern-life" onclick="toggleTagFilter('intern-life', this)">&#127891; Intern Life</button>
+            <button class="filter-btn" data-tag="fun" onclick="toggleTagFilter('fun', this)">&#127881; Fun</button>
+          </div>
+        </div>
+
+        <div class="question-list" id="questionList">
+          <div class="empty-state">
+            <div class="icon">&#9995;</div>
+            <h3>Waiting for questions...</h3>
+            <p>Share the QR code or session code with participants to get started</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <!-- QR section -->
+        <div class="sidebar-card" id="qrCard">
+          <h3>Share Session</h3>
+          <div style="text-align:center;">
+            <img id="qrImage" style="width:180px;height:180px;border-radius:8px;" />
+            <div style="margin-top:10px;">
+              <span style="font-size:28px;font-weight:700;letter-spacing:3px;color:var(--g-blue);font-family:'Google Sans',monospace;" id="sidebarCode"></span>
+            </div>
+            <div class="qr-url" id="qrUrl" style="margin-top:8px;font-size:11px;"></div>
+            <button class="btn btn-sm btn-secondary" style="margin-top:10px;" onclick="copyLink()">Copy Link</button>
+          </div>
+        </div>
+
+        <!-- Word cloud -->
+        <div class="sidebar-card">
+          <h3>Trending Topics</h3>
+          <div class="word-cloud" id="wordCloud">
+            <span style="color:var(--text-light);font-size:13px;">Topics appear as questions come in...</span>
+          </div>
+        </div>
+
+        <!-- Activity feed -->
+        <div class="sidebar-card">
+          <h3>Activity</h3>
+          <div id="activityFeed" style="max-height:300px;overflow-y:auto;">
+            <div class="activity-item">Session created. Share the code to get started!</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Modal (fullscreen for projection) -->
+  <div class="modal-overlay" id="qrModal">
+    <div class="modal" style="max-width:520px;text-align:center;">
+      <div class="g-subtitle" style="margin-bottom:8px;">Google Intern Connect</div>
+      <h3 id="qrModalTitle" style="font-size:24px;">Join the AMA!</h3>
+      <p style="color:var(--text-light);margin-bottom:16px;">Scan the QR code or enter the session code below</p>
+      <img id="qrModalImage" style="width:260px;height:260px;border-radius:12px;" />
+      <div style="margin:20px 0;">
+        <span style="font-size:40px;font-weight:700;letter-spacing:5px;color:var(--g-blue);font-family:'Google Sans',monospace;" id="qrModalCode"></span>
+      </div>
+      <div class="qr-url" id="qrModalUrl"></div>
+      <div class="g-divider" style="margin:20px auto 16px;"></div>
+      <button class="btn btn-ghost" onclick="document.getElementById('qrModal').classList.remove('active')">Close</button>
+    </div>
+  </div>
+
+  <!-- Export Modal -->
+  <div class="modal-overlay" id="exportModal">
+    <div class="modal" style="max-width:600px;">
+      <h3>&#128230; Export Session Data</h3>
+      <p style="color:var(--text-light);font-size:13px;margin-bottom:12px;">Share this with speakers to answer unanswered questions async</p>
+      <textarea id="exportContent" readonly style="width:100%;height:400px;border:1px solid var(--border);border-radius:8px;padding:12px;font-family:monospace;font-size:12px;resize:none;background:var(--bg);"></textarea>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn btn-primary" style="flex:1;border-radius:24px;" onclick="copyExport()">Copy to Clipboard</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('exportModal').classList.remove('active')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toasts"></div>
+
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+  <script>
+    const socket = io();
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const userId = localStorage.getItem('askup_userId') || crypto.randomUUID();
+    localStorage.setItem('askup_userId', userId);
+
+    let questions = [];
+    let sessionActive = true;
+    let currentFilter = 'all';
+    let activeTagFilters = [];
+
+    if (!code) window.location.href = '/';
+    document.getElementById('sessionCode').textContent = code;
+    document.getElementById('sidebarCode').textContent = code;
+
+    socket.emit('join-session', { code, userId, userName: 'Moderator', role: 'moderator' });
+
+    fetch(`/api/sessions/${code}/qr`).then(r => r.json()).then(data => {
+      document.getElementById('qrImage').src = data.qr;
+      document.getElementById('qrUrl').textContent = data.url;
+      document.getElementById('qrModalImage').src = data.qr;
+      document.getElementById('qrModalUrl').textContent = data.url;
+      document.getElementById('qrModalCode').textContent = code;
+    });
+
+    socket.on('session-data', data => {
+      document.getElementById('headerSessionName').textContent = data.name;
+      document.getElementById('qrModalTitle').textContent = `Join: ${data.name}`;
+      questions = data.questions;
+      sessionActive = data.isActive;
+      updateStatus();
+      updateStats({
+        total: questions.length,
+        answered: questions.filter(q => q.isAnswered).length,
+        unanswered: questions.filter(q => !q.isAnswered).length,
+        participants: data.participantCount,
+        totalVotes: questions.reduce((s, q) => s + q.votes, 0)
+      });
+      renderQuestions();
+      updateWordCloud();
+    });
+
+    socket.on('new-question', q => {
+      questions.push(q);
+      renderQuestions();
+      updateWordCloud();
+      addActivity(`New question from <strong>${q.userName}</strong>`);
+      updateLocalStats();
+    });
+
+    socket.on('vote-update', ({ questionId, votes, voters }) => {
+      const q = questions.find(q => q.id === questionId);
+      if (q) { q.votes = votes; q.voters = voters; renderQuestions(); updateLocalStats(); }
+    });
+
+    socket.on('question-updated', updated => {
+      const idx = questions.findIndex(q => q.id === updated.id);
+      if (idx >= 0) questions[idx] = updated;
+      renderQuestions();
+      updateLocalStats();
+    });
+
+    socket.on('participant-count', count => {
+      document.getElementById('pCount').textContent = count;
+      document.getElementById('statParticipants').textContent = count;
+    });
+
+    socket.on('stats-update', updateStats);
+
+    socket.on('session-toggled', active => {
+      sessionActive = active;
+      updateStatus();
+      addActivity(active ? 'Session <strong>resumed</strong>' : 'Session <strong>paused</strong>');
+    });
+
+    // ── Actions ──
+    function toggleSession() { socket.emit('toggle-session', { code }); }
+    function markAnswered(id) { socket.emit('mark-answered', { code, questionId: id }); }
+    function pinQuestion(id) { socket.emit('pin-question', { code, questionId: id }); }
+    function hideQuestion(id) { socket.emit('hide-question', { code, questionId: id }); }
+
+    function setFilter(filter, el) {
+      currentFilter = filter;
+      document.querySelectorAll('.mod-toolbar > .tag-filter-bar:first-child .filter-btn').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      renderQuestions();
+    }
+
+    function toggleTagFilter(tag, el) {
+      el.classList.toggle('active');
+      if (activeTagFilters.includes(tag)) {
+        activeTagFilters = activeTagFilters.filter(t => t !== tag);
+      } else {
+        activeTagFilters.push(tag);
+      }
+      renderQuestions();
+    }
+
+    function showQR() { document.getElementById('qrModal').classList.add('active'); }
+
+    function copyLink() {
+      const url = document.getElementById('qrUrl').textContent;
+      navigator.clipboard.writeText(url);
+      toast('Link copied!');
+    }
+
+    async function exportData() {
+      const res = await fetch(`/api/sessions/${code}/export`);
+      const data = await res.json();
+
+      let text = `# ${data.session} - AskUp Export\n`;
+      text += `# Google Intern Connect AMA\n`;
+      text += `Exported: ${new Date(data.exportedAt).toLocaleString()}\n`;
+      text += `Total Questions: ${data.totalQuestions} | Participants: ${data.totalParticipants}\n\n`;
+      text += `${'='.repeat(50)}\n\n`;
+
+      text += `## TOP UNANSWERED QUESTIONS (${data.unanswered.length})\n`;
+      text += `These are the questions interns most wanted answered.\n`;
+      text += `Speakers: please respond inline and share back!\n\n`;
+      data.unanswered.forEach((q, i) => {
+        text += `${i + 1}. [${q.votes} votes] ${q.text}\n`;
+        text += `   Asked by: ${q.userName} | Tags: ${q.tags.join(', ') || 'none'}\n`;
+        text += `   Answer: ___\n\n`;
+      });
+
+      text += `\n## ANSWERED DURING SESSION (${data.answered.length})\n\n`;
+      data.answered.forEach((q, i) => {
+        text += `${i + 1}. [${q.votes} votes] ${q.text}\n`;
+        text += `   Asked by: ${q.userName}\n\n`;
+      });
+
+      document.getElementById('exportContent').value = text;
+      document.getElementById('exportModal').classList.add('active');
+    }
+
+    function copyExport() {
+      const content = document.getElementById('exportContent');
+      content.select();
+      navigator.clipboard.writeText(content.value);
+      toast('Export copied to clipboard!');
+    }
+
+    // ── Render ──
+    function renderQuestions() {
+      let filtered = questions.filter(q => !q.isHidden);
+
+      if (currentFilter === 'unanswered') filtered = filtered.filter(q => !q.isAnswered);
+      else if (currentFilter === 'answered') filtered = filtered.filter(q => q.isAnswered);
+      else if (currentFilter === 'pinned') filtered = filtered.filter(q => q.isPinned);
+
+      if (activeTagFilters.length > 0) {
+        filtered = filtered.filter(q => q.tags.some(t => activeTagFilters.includes(t)));
+      }
+
+      filtered.sort((a, b) => {
+        if (a.isPinned !== b.isPinned) return b.isPinned ? 1 : -1;
+        return b.votes - a.votes;
+      });
+
+      const list = document.getElementById('questionList');
+      if (filtered.length === 0) {
+        list.innerHTML = `<div class="empty-state"><div class="icon">&#9995;</div><h3>No questions match this filter</h3><p>Try a different filter or wait for more questions</p></div>`;
+        return;
+      }
+
+      list.innerHTML = filtered.map(q => {
+        const timeAgo = getTimeAgo(q.createdAt);
+        return `
+          <div class="question-card ${q.isAnswered ? 'answered' : ''} ${q.isPinned ? 'pinned' : ''}">
+            <div class="vote-btn">
+              <div class="vote-arrow voted" style="cursor:default;">&#9650;</div>
+              <span class="vote-count">${q.votes}</span>
+            </div>
+            <div class="question-content">
+              <div class="question-text">${escapeHtml(q.text)}</div>
+              <div class="question-meta">
+                <span>${q.userName}</span>
+                <span>${timeAgo}</span>
+                ${q.tags.map(t => `<span class="question-tag">${t}</span>`).join('')}
+                ${q.isAnswered ? '<span class="answered-badge">&#10003; Answered</span>' : ''}
+                ${q.isPinned ? '<span class="pinned-badge">&#128204; Pinned</span>' : ''}
+              </div>
+              <div class="mod-actions">
+                <button class="btn btn-sm ${q.isAnswered ? 'btn-green' : 'btn-secondary'}" onclick="markAnswered('${q.id}')">
+                  ${q.isAnswered ? '&#10003; Answered' : 'Mark Answered'}
+                </button>
+                <button class="btn btn-sm ${q.isPinned ? 'btn-yellow' : 'btn-secondary'}" onclick="pinQuestion('${q.id}')">
+                  ${q.isPinned ? '&#128204; Pinned' : '&#128204; Pin'}
+                </button>
+                <button class="btn btn-sm btn-red" onclick="hideQuestion('${q.id}')">Hide</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateStats(stats) {
+      document.getElementById('statTotal').textContent = stats.total;
+      document.getElementById('statAnswered').textContent = stats.answered;
+      document.getElementById('statUnanswered').textContent = stats.unanswered;
+      document.getElementById('statParticipants').textContent = stats.participants;
+      document.getElementById('statVotes').textContent = stats.totalVotes;
+    }
+
+    function updateLocalStats() {
+      const visible = questions.filter(q => !q.isHidden);
+      updateStats({
+        total: visible.length,
+        answered: visible.filter(q => q.isAnswered).length,
+        unanswered: visible.filter(q => !q.isAnswered).length,
+        participants: parseInt(document.getElementById('pCount').textContent) || 0,
+        totalVotes: visible.reduce((s, q) => s + q.votes, 0)
+      });
+    }
+
+    function updateStatus() {
+      const pulse = document.getElementById('livePulse');
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      const btn = document.getElementById('toggleBtn');
+
+      if (sessionActive) {
+        pulse.className = 'live-pulse active';
+        dot.className = 'status-dot';
+        text.textContent = 'Live';
+        btn.textContent = 'Pause';
+      } else {
+        pulse.className = 'live-pulse paused';
+        dot.className = 'status-dot paused';
+        text.textContent = 'Paused';
+        btn.textContent = 'Resume';
+      }
+    }
+
+    function updateWordCloud() {
+      const words = {};
+      const stopWords = new Set(['the','a','an','is','are','was','were','be','been','being','have','has','had','do','does','did','will','would','could','should','may','might','shall','can','need','dare','ought','used','to','of','in','for','on','with','at','by','from','as','into','through','during','before','after','above','below','between','out','off','over','under','again','further','then','once','here','there','when','where','why','how','all','both','each','few','more','most','other','some','such','no','nor','not','only','own','same','so','than','too','very','just','because','but','and','or','if','while','what','which','who','whom','this','that','these','those','i','me','my','we','our','you','your','he','him','his','she','her','it','its','they','them','their','about','like','get','know','think','want','make','go','see','come','take','find','give','tell','work','call','try','ask','use','look','google']);
+
+      questions.filter(q => !q.isHidden).forEach(q => {
+        q.text.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).forEach(w => {
+          if (w.length > 2 && !stopWords.has(w)) words[w] = (words[w] || 0) + 1;
+        });
+      });
+
+      const sorted = Object.entries(words).sort((a, b) => b[1] - a[1]).slice(0, 20);
+      const cloud = document.getElementById('wordCloud');
+
+      if (sorted.length === 0) {
+        cloud.innerHTML = '<span style="color:var(--text-light);font-size:13px;">Topics appear as questions come in...</span>';
+        return;
+      }
+
+      const max = sorted[0][1];
+      cloud.innerHTML = sorted.map(([word, count]) => {
+        const ratio = count / max;
+        let size = 'size-1';
+        if (ratio > 0.75) size = 'size-4';
+        else if (ratio > 0.5) size = 'size-3';
+        else if (ratio > 0.25) size = 'size-2';
+        return `<span class="cloud-word ${size}">${word}</span>`;
+      }).join('');
+    }
+
+    function addActivity(msg) {
+      const feed = document.getElementById('activityFeed');
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      feed.insertAdjacentHTML('afterbegin', `<div class="activity-item"><strong>${time}</strong> &mdash; ${msg}</div>`);
+    }
+
+    function getTimeAgo(ts) {
+      const diff = Math.floor((Date.now() - ts) / 1000);
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      return `${Math.floor(diff / 3600)}h ago`;
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function toast(msg) {
+      const container = document.getElementById('toasts');
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.textContent = msg;
+      container.appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+      el.addEventListener('click', e => { if (e.target === el) el.classList.remove('active'); });
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active')); });
+  </script>
+</body>
+</html>
