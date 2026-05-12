@@ -9,8 +9,8 @@ import random
 from datetime import datetime
 
 try:
-    import eventlet
-    eventlet.monkey_patch()
+    from gevent import monkey
+    monkey.patch_all()
 except ImportError:
     pass
 
