@@ -1,0 +1,16 @@
+{
+  "name": "askup",
+  "version": "1.0.0",
+  "description": "Live question crowdsourcing platform for AMA sessions",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.4",
+    "qrcode": "^1.5.3",
+    "uuid": "^9.0.0"
+  }
+}
