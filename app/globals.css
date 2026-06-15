@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500;700&display=swap');
+
+:root {
+  --g-blue: #4285F4;
+  --g-red: #EA4335;
+  --g-yellow: #FBBC05;
+  --g-green: #34A853;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Roboto', Arial, sans-serif;
+  background-color: #F8F9FA;
+  color: #202124;
+}
+
+.google-bar {
+  height: 4px;
+  background: linear-gradient(
+    to right,
+    #4285F4 0%,
+    #4285F4 25%,
+    #EA4335 25%,
+    #EA4335 50%,
+    #FBBC05 50%,
+    #FBBC05 75%,
+    #34A853 75%,
+    #34A853 100%
+  );
+}
+
+.card {
+  @apply bg-white rounded-2xl shadow-sm border border-gray-100;
+}
+
+.btn-primary {
+  @apply font-medium py-2.5 px-5 rounded-full text-white transition-all duration-200 text-sm;
+  background-color: var(--g-blue);
+}
+.btn-primary:hover {
+  background-color: #3367D6;
+  box-shadow: 0 2px 8px rgba(66,133,244,0.4);
+}
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-green {
+  @apply font-medium py-2.5 px-5 rounded-full text-white transition-all duration-200 text-sm;
+  background-color: var(--g-green);
+}
+.btn-green:hover { background-color: #2D8F48; }
+
+.input {
+  @apply w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-800 text-sm
+    focus:outline-none focus:ring-2 focus:border-transparent transition-all;
+  --tw-ring-color: var(--g-blue);
+}
+
+.vote-btn {
+  @apply flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-150;
+}
