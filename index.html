@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AskUp - Google Intern Connect</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9995;</text></svg>">
+</head>
+<body>
+  <div class="landing">
+    <div class="g-subtitle">Google Intern Connect</div>
+    <div class="logo">
+      <span>A</span><span>s</span><span>k</span><span>U</span><span>p</span><span>!</span>
+    </div>
+    <p class="tagline">Live questions. Real answers. Every voice heard.</p>
+    <div class="g-divider"></div>
+
+    <div class="landing-cards">
+      <div class="landing-card" onclick="showModal('join')">
+        <div class="card-icon blue">&#9995;</div>
+        <h2>Join a Session</h2>
+        <p>Have a burning question for Google leaders? Enter the session code, ask away, and upvote what matters most.</p>
+      </div>
+      <div class="landing-card" onclick="showModal('create')">
+        <div class="card-icon green">&#127908;</div>
+        <h2>Host a Session</h2>
+        <p>Running an AMA? Create a session, share the QR code, and let the best questions rise to the top.</p>
+      </div>
+    </div>
+
+    <p class="g-footer">Built for Google Intern Connect AMA Sessions</p>
+  </div>
+
+  <!-- Join Modal -->
+  <div class="modal-overlay" id="joinModal">
+    <div class="modal">
+      <h3>Join AMA Session</h3>
+      <div class="form-group">
+        <label>Session Code</label>
+        <input type="text" id="joinCode" placeholder="e.g. ABC123" maxlength="6"
+               style="text-transform:uppercase; letter-spacing:3px; font-weight:600; text-align:center; font-size:22px;">
+      </div>
+      <div class="form-group">
+        <label>Your Name (optional)</label>
+        <input type="text" id="joinName" placeholder="Or stay anonymous — it's cool">
+      </div>
+      <button class="btn btn-primary" onclick="joinSession()">Join Session</button>
+      <button class="btn btn-ghost" onclick="closeModals()" style="width:100%;margin-top:8px;">Cancel</button>
+      <p id="joinError" style="color:var(--g-red);font-size:13px;margin-top:12px;text-align:center;" class="hidden"></p>
+    </div>
+  </div>
+
+  <!-- Create Modal -->
+  <div class="modal-overlay" id="createModal">
+    <div class="modal">
+      <h3>Create AMA Session</h3>
+      <div class="form-group">
+        <label>Session Name</label>
+        <input type="text" id="sessionName" placeholder="e.g. AMA with Google Engineering Leaders">
+      </div>
+      <div class="form-group">
+        <label>Your Name</label>
+        <input type="text" id="modName" placeholder="Moderator name">
+      </div>
+      <button class="btn btn-primary" onclick="createSession()">Create Session</button>
+      <button class="btn btn-ghost" onclick="closeModals()" style="width:100%;margin-top:8px;">Cancel</button>
+    </div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+  <script>
+    function showModal(type) {
+      closeModals();
+      document.getElementById(type === 'join' ? 'joinModal' : 'createModal').classList.add('active');
+      setTimeout(() => {
+        document.getElementById(type === 'join' ? 'joinCode' : 'sessionName').focus();
+      }, 200);
+    }
+
+    function closeModals() {
+      document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+    }
+
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+      el.addEventListener('click', e => { if (e.target === el) closeModals(); });
+    });
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModals(); });
+    document.getElementById('joinCode').addEventListener('keydown', e => {
+      if (e.key === 'Enter') joinSession();
+    });
+
+    async function joinSession() {
+      const code = document.getElementById('joinCode').value.trim().toUpperCase();
+      const name = document.getElementById('joinName').value.trim();
+      if (!code) return;
+
+      const res = await fetch(`/api/sessions/${code}`);
+      if (!res.ok) {
+        document.getElementById('joinError').textContent = 'Session not found. Check the code and try again.';
+        document.getElementById('joinError').classList.remove('hidden');
+        return;
+      }
+
+      localStorage.setItem('askup_name', name);
+      localStorage.setItem('askup_userId', localStorage.getItem('askup_userId') || crypto.randomUUID());
+      window.location.href = `/intern.html?code=${code}`;
+    }
+
+    async function createSession() {
+      const name = document.getElementById('sessionName').value.trim() || 'AMA Session';
+      const modName = document.getElementById('modName').value.trim() || 'Moderator';
+      const modId = localStorage.getItem('askup_userId') || crypto.randomUUID();
+      localStorage.setItem('askup_userId', modId);
+      localStorage.setItem('askup_name', modName);
+
+      const res = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, moderatorId: modId })
+      });
+
+      const data = await res.json();
+      window.location.href = `/moderator.html?code=${data.code}`;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('code')) {
+      document.getElementById('joinCode').value = params.get('code');
+      showModal('join');
+    }
+  </script>
+</body>
+</html>

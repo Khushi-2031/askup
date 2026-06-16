@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AskUp - Ask Your Question</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9995;</text></svg>">
+</head>
+<body>
+  <header class="app-header">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <a href="/" style="text-decoration:none;">
+        <div class="logo">
+          <span>A</span><span>s</span><span>k</span><span>U</span><span>p</span><span>!</span>
+        </div>
+      </a>
+      <span style="font-size:11px;color:var(--text-light);background:var(--bg);padding:3px 10px;border-radius:12px;font-weight:500;">Intern Connect</span>
+    </div>
+    <div class="header-meta">
+      <span class="session-badge" id="sessionCode"></span>
+      <span class="participant-count">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="pCount">0</span> live
+      </span>
+    </div>
+  </header>
+
+  <div class="g-event-bar" id="eventBar">
+    <strong>&#127881;</strong> Welcome to the AMA! Ask anything — your question matters.
+  </div>
+
+  <div class="intern-container">
+    <div id="sessionName" style="font-size:18px;font-weight:600;color:var(--dark);margin-bottom:20px;text-align:center;"></div>
+
+    <!-- Composer -->
+    <div class="question-composer" id="composer">
+      <textarea id="questionInput" placeholder="What would you like to ask the speakers?" rows="3" maxlength="300"></textarea>
+      <div class="tag-pills">
+        <span class="tag-pill" data-tag="career" onclick="toggleTag(this)">&#128188; Career</span>
+        <span class="tag-pill" data-tag="culture" onclick="toggleTag(this)">&#127912; Culture</span>
+        <span class="tag-pill" data-tag="technical" onclick="toggleTag(this)">&#128187; Technical</span>
+        <span class="tag-pill" data-tag="intern-life" onclick="toggleTag(this)">&#127891; Intern Life</span>
+        <span class="tag-pill" data-tag="fun" onclick="toggleTag(this)">&#127881; Fun</span>
+      </div>
+      <div class="composer-footer">
+        <label class="anon-toggle" onclick="toggleAnon()">
+          <div class="toggle-track" id="anonToggle">
+            <div class="toggle-thumb"></div>
+          </div>
+          <span id="anonLabel">Post with name</span>
+        </label>
+        <span class="char-count" id="charCount">0 / 300</span>
+        <button class="btn btn-primary" style="width:auto;padding:10px 28px;border-radius:24px;" onclick="submitQuestion()">
+          Ask &#10148;
+        </button>
+      </div>
+    </div>
+
+    <!-- Similar question alert -->
+    <div class="similar-alert hidden" id="similarAlert">
+      <h4>&#128161; Similar question already asked:</h4>
+      <div id="similarContent"></div>
+      <div class="similar-actions">
+        <button class="btn btn-secondary btn-sm" onclick="voteSimilar()">&#9650; Upvote existing</button>
+        <button class="btn btn-sm" style="background:var(--bg);" onclick="forceSubmit()">Ask anyway</button>
+      </div>
+    </div>
+
+    <!-- Questions -->
+    <div class="questions-header">
+      <h2>Live Questions <span id="qTotal" style="color:var(--text-light);font-weight:400;"></span></h2>
+      <select class="sort-select" id="sortSelect" onchange="renderQuestions()">
+        <option value="votes">Top Voted</option>
+        <option value="newest">Newest</option>
+        <option value="oldest">Oldest</option>
+      </select>
+    </div>
+
+    <div class="question-list" id="questionList">
+      <div class="empty-state">
+        <div class="icon">&#9995;</div>
+        <h3>No questions yet</h3>
+        <p>Be the first to ask! Your question could be the one everyone's thinking.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Paused overlay -->
+  <div class="paused-overlay hidden" id="pausedOverlay">
+    <div class="paused-message">
+      <div class="logo" style="font-size:32px;margin-bottom:12px;">
+        <span>A</span><span>s</span><span>k</span><span>U</span><span>p</span><span>!</span>
+      </div>
+      <h2>Session Paused</h2>
+      <p>The moderator has paused question submissions.<br>Hang tight — we'll be back shortly!</p>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toasts"></div>
+
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+  <script>
+    const socket = io();
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const userId = localStorage.getItem('askup_userId') || crypto.randomUUID();
+    const userName = localStorage.getItem('askup_name') || '';
+    localStorage.setItem('askup_userId', userId);
+
+    let questions = [];
+    let isAnonymous = false;
+    let selectedTags = [];
+    let pendingText = '';
+    let sessionActive = true;
+
+    if (!code) window.location.href = '/';
+
+    document.getElementById('sessionCode').textContent = code;
+
+    socket.emit('join-session', { code, userId, userName, role: 'intern' });
+
+    socket.on('session-data', data => {
+      document.getElementById('sessionName').textContent = data.name;
+      questions = data.questions;
+      sessionActive = data.isActive;
+      document.getElementById('pCount').textContent = data.participantCount;
+      togglePaused();
+      renderQuestions();
+    });
+
+    socket.on('new-question', q => {
+      questions.push(q);
+      renderQuestions();
+      if (q.voters && !q.voters.includes(userId)) toast('New question just dropped!');
+    });
+
+    socket.on('vote-update', ({ questionId, votes, voters }) => {
+      const q = questions.find(q => q.id === questionId);
+      if (q) { q.votes = votes; q.voters = voters; renderQuestions(); }
+    });
+
+    socket.on('question-updated', updated => {
+      const idx = questions.findIndex(q => q.id === updated.id);
+      if (idx >= 0) questions[idx] = updated;
+      if (updated.isHidden) questions = questions.filter(q => !q.isHidden);
+      renderQuestions();
+    });
+
+    socket.on('participant-count', count => {
+      document.getElementById('pCount').textContent = count;
+    });
+
+    socket.on('session-toggled', active => {
+      sessionActive = active;
+      togglePaused();
+    });
+
+    socket.on('similar-found', ({ similar, originalText }) => {
+      pendingText = originalText;
+      const alert = document.getElementById('similarAlert');
+      const content = document.getElementById('similarContent');
+      content.innerHTML = similar.map(s =>
+        `<div class="similar-question">"${escapeHtml(s.text)}"</div>`
+      ).join('');
+      alert.classList.remove('hidden');
+      window._similarId = similar[0].id;
+    });
+
+    socket.on('stats-update', () => {});
+
+    // ── Composer ──
+    const textarea = document.getElementById('questionInput');
+    textarea.addEventListener('input', () => {
+      const len = textarea.value.length;
+      const counter = document.getElementById('charCount');
+      counter.textContent = `${len} / 300`;
+      counter.classList.toggle('warn', len > 270);
+    });
+
+    textarea.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitQuestion();
+    });
+
+    function toggleTag(el) {
+      const tag = el.dataset.tag;
+      el.classList.toggle('selected');
+      if (selectedTags.includes(tag)) {
+        selectedTags = selectedTags.filter(t => t !== tag);
+      } else {
+        selectedTags.push(tag);
+      }
+    }
+
+    function toggleAnon() {
+      isAnonymous = !isAnonymous;
+      document.getElementById('anonToggle').classList.toggle('active', isAnonymous);
+      document.getElementById('anonLabel').textContent = isAnonymous ? 'Posting anonymously' : 'Post with name';
+    }
+
+    function submitQuestion() {
+      const text = textarea.value.trim();
+      if (!text) return;
+      document.getElementById('similarAlert').classList.add('hidden');
+
+      socket.emit('submit-question', {
+        code, text, userName, isAnonymous, tags: [...selectedTags]
+      });
+
+      textarea.value = '';
+      document.getElementById('charCount').textContent = '0 / 300';
+      selectedTags = [];
+      document.querySelectorAll('.tag-pill').forEach(p => p.classList.remove('selected'));
+      toast('Question submitted!');
+    }
+
+    function voteSimilar() {
+      if (window._similarId) {
+        socket.emit('vote', { code, questionId: window._similarId });
+        document.getElementById('similarAlert').classList.add('hidden');
+        textarea.value = '';
+        document.getElementById('charCount').textContent = '0 / 300';
+        toast('Upvoted the similar question!');
+      }
+    }
+
+    function forceSubmit() {
+      socket.emit('force-submit', {
+        code, text: pendingText, userName, isAnonymous, tags: [...selectedTags]
+      });
+      document.getElementById('similarAlert').classList.add('hidden');
+      textarea.value = '';
+      document.getElementById('charCount').textContent = '0 / 300';
+      selectedTags = [];
+      document.querySelectorAll('.tag-pill').forEach(p => p.classList.remove('selected'));
+      toast('Question submitted!');
+    }
+
+    function vote(questionId) {
+      socket.emit('vote', { code, questionId });
+    }
+
+    // ── Render ──
+    function renderQuestions() {
+      const sort = document.getElementById('sortSelect').value;
+      const visible = questions.filter(q => !q.isHidden);
+      let sorted = [...visible];
+
+      if (sort === 'votes') sorted.sort((a, b) => {
+        if (a.isPinned !== b.isPinned) return b.isPinned ? 1 : -1;
+        return b.votes - a.votes;
+      });
+      else if (sort === 'newest') sorted.sort((a, b) => b.createdAt - a.createdAt);
+      else sorted.sort((a, b) => a.createdAt - b.createdAt);
+
+      document.getElementById('qTotal').textContent = visible.length > 0 ? `(${visible.length})` : '';
+
+      const list = document.getElementById('questionList');
+      if (sorted.length === 0) {
+        list.innerHTML = `<div class="empty-state"><div class="icon">&#9995;</div><h3>No questions yet</h3><p>Be the first to ask!</p></div>`;
+        return;
+      }
+
+      list.innerHTML = sorted.map(q => {
+        const hasVoted = q.voters && q.voters.includes(userId);
+        const timeAgo = getTimeAgo(q.createdAt);
+        return `
+          <div class="question-card ${q.isAnswered ? 'answered' : ''} ${q.isPinned ? 'pinned' : ''}">
+            <div class="vote-btn" onclick="vote('${q.id}')">
+              <button class="vote-arrow ${hasVoted ? 'voted' : ''}">&#9650;</button>
+              <span class="vote-count">${q.votes}</span>
+            </div>
+            <div class="question-content">
+              <div class="question-text">${escapeHtml(q.text)}</div>
+              <div class="question-meta">
+                <span>${q.userName}</span>
+                <span>${timeAgo}</span>
+                ${q.tags.map(t => `<span class="question-tag">${t}</span>`).join('')}
+                ${q.isAnswered ? '<span class="answered-badge">&#10003; Answered</span>' : ''}
+                ${q.isPinned ? '<span class="pinned-badge">&#128204; Pinned</span>' : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function togglePaused() {
+      document.getElementById('pausedOverlay').classList.toggle('hidden', sessionActive);
+      document.getElementById('statusDot').classList.toggle('paused', !sessionActive);
+      document.getElementById('composer').style.opacity = sessionActive ? 1 : 0.5;
+      document.getElementById('composer').style.pointerEvents = sessionActive ? 'auto' : 'none';
+    }
+
+    function getTimeAgo(ts) {
+      const diff = Math.floor((Date.now() - ts) / 1000);
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      return `${Math.floor(diff / 3600)}h ago`;
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function toast(msg) {
+      const container = document.getElementById('toasts');
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.textContent = msg;
+      container.appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+  </script>
+</body>
+</html>
