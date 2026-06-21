@@ -92,10 +92,11 @@ export default function AdminPage() {
         q.text,
         q.is_anonymous || !q.author_name ? 'Anonymous' : q.author_name,
         String(q.votes),
+        String(q.me_too_count ?? 0),
         new Date(q.created_at).toLocaleString(),
       ]);
     downloadCSV(
-      [['Question', 'Author', 'Votes', 'Submitted At'], ...rows],
+      [['Question', 'Author', 'Votes', 'Me Too', 'Submitted At'], ...rows],
       `askup-${id}-unanswered.csv`
     );
   }
@@ -352,6 +353,17 @@ export default function AdminPage() {
 
                 {/* Actions */}
                 <div className="flex flex-col gap-1">
+                  {(q.me_too_count ?? 0) > 0 && (
+                    <div className="text-center mb-1">
+                      <span className="text-xs text-purple-500 font-medium">🙋{q.me_too_count}</span>
+                    </div>
+                  )}
+                  {q.is_answered && ((q.satisfaction_up ?? 0) + (q.satisfaction_down ?? 0)) > 0 && (
+                    <div className="text-center mb-1 text-xs">
+                      <span className="text-green-600">👍{q.satisfaction_up}</span>
+                      <span className="text-red-400 ml-1">👎{q.satisfaction_down}</span>
+                    </div>
+                  )}
                   <button
                     onClick={() => markAnswered(q)}
                     title={q.is_answered ? 'Mark unanswered' : 'Mark answered'}
