@@ -33,8 +33,10 @@ export default function HomePage() {
       if (err) throw err;
       localStorage.setItem(`askup_admin_${id}`, adminToken);
       router.push(`/admin/${id}?token=${adminToken}`);
-    } catch {
-      setError('Could not create session. Check your connection and try again.');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : JSON.stringify(e);
+      console.error('[AskUp] createSession error:', msg);
+      setError(`Error: ${msg}`);
       setLoading(false);
     }
   }
