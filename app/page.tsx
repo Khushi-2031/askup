@@ -208,7 +208,7 @@ export default function HomePage() {
       </div>
 
       <footer className="text-center py-4 text-xs text-gray-400">
-        Built for Google Connect · Intern AMA 2024
+        Built for Google Connect · Intern AMA 2026
       </footer>
     </div>
   );
